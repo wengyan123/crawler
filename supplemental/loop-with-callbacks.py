@@ -14,7 +14,7 @@ stopped = False
 
 class Fetcher:
     def __init__(self, url):
-        self.response = b''
+        self.response = b''  # Empty array of bytes.
         self.url = url
         self.sock = None
 
@@ -42,11 +42,11 @@ class Fetcher:
         if chunk:
             self.response += chunk
         else:
-            selector.unregister(key.fd)
+            selector.unregister(key.fd)  # Done reading
             links = self.parse_links()
             for link in links.difference(seen_urls):
                 urls_todo.add(link)
-                Fetcher(link).fetch()
+                Fetcher(link).fetch()  # New fetcher
 
             seen_urls.update(links)
             urls_todo.remove(self.url)
@@ -95,17 +95,3 @@ while not stopped:
 
 print('{} URLs fetched in {:.1f} seconds, achieved concurrency = {}'.format(
     len(seen_urls), time.time() - start, concurrency_achieved))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
