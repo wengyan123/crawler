@@ -22,7 +22,7 @@ class Future:
             fn(self)
 
     def __iter__(self):
-        yield self  # This tells Task to wait for completion
+        yield self  # This tells Task to wait for completion.
         return self.result
 
 
@@ -35,6 +35,7 @@ class Task:
 
     def step(self, future):
         try:
+            # coro is fetcher.fetch(), will start fetch here
             next_future = self.coro.send(future.result)
         except StopIteration:
             return
@@ -42,8 +43,8 @@ class Task:
         next_future.add_done_callback(self.step)
 
 
-urls_seen = set(['/'])
-urls_todo = set(['/'])
+urls_seen = set(['/blog/'])
+urls_todo = set(['/blog/'])
 concurrency_achieved = 0
 selector = DefaultSelector()
 stopped = False
@@ -69,7 +70,7 @@ def read(sock):
     f = Future()
 
     def on_readable():
-        f.set_result(sock.recv(4096)) #Read 4k at a time
+        f.set_result(sock.recv(4096))  # Read 4k at a time.
 
     selector.register(sock.fileno(), EVENT_READ, on_readable)
     chunk = yield from f
@@ -88,7 +89,7 @@ def read_all(sock):
 
 
 class Fetcher:
-    def __init__(self):
+    def __init__(self, url):
         self.response = b''
         self.url = url
 
@@ -96,8 +97,8 @@ class Fetcher:
         global concurrency_achieved, stopped
         concurrency_achieved = max(concurrency_achieved, len(urls_todo))
 
-        sock = socket()
-        yield from connect(sock, ('www.myblog.com', 80))
+        sock = socket.socket()
+        yield from connect(sock, ('127.0.0.1', 8000))
         get = 'GET {} HTTP/1.0\r\nHost: www.myblog.com\r\n\r\n'.format(self.url)
         sock.send(get.encode('ascii'))
         self.response = yield from read_all(sock)
@@ -120,13 +121,14 @@ class Fetcher:
             return
         urls = set(re.findall(r'''(?i)href=["']?([^\s"'<>]+)''',
                               self.body()))
+
         for url in urls:
             normalized = urllib.parse.urljoin(self.url, url)
             parts = urllib.parse.urlparse(normalized)
             if parts.scheme not in ('', 'http', 'https'):
                 continue
             host, port = urllib.parse.splitport(parts.netloc)
-            if host and host.lower() not in ('myblog.com', 'www.mybloc.com'):
+            if host and host.lower() not in ('myblog.com', 'www.myblog.com'):
                 continue
             defragmented, frag = urllib.parse.urldefrag(parts.path)
             if defragmented not in urls_seen:
@@ -141,16 +143,14 @@ class Fetcher:
 
 
 start = time.time()
-fetcher = Fetcher('/')
+fetcher = Fetcher('/blog/')
 Task(fetcher.fetch())
-
 
 while not stopped:
     events = selector.select()
     for event_key, event_mask in events:
         callback = event_key.data
         callback()
-
 
 print('{} URLs fetched in {:.1f} seconds, achieved concurrency = {}'.format(
     len(urls_seen), time.time() - start, concurrency_achieved))
